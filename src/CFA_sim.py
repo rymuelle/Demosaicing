@@ -1,15 +1,20 @@
 import numpy as np
 from PIL import Image
+import random
 
 def simulate_sparse_PIL(image, **kwargs):
     arr = np.array(image).transpose(2, 0, 1)
     return simulate_sparse(arr, **kwargs)[0].transpose(1, 2, 0)
     return Image.fromarray(simulate_sparse(arr, **kwargs)[0].transpose(1, 2, 0))
 
-def simulate_sparse_wrapper(image, **kwargs):
+def simulate_sparse_wrapper(image, cfa_type = 'random', **kwargs):
     arr = image.transpose(2, 0, 1)
-    return simulate_sparse(arr, **kwargs)[0].transpose(1, 2, 0)
-
+    if cfa_type == "random":
+        if random.random() > 0.5:
+            cfa_type = 'xtrans'
+        else:
+            cfa_type = 'bayer'
+    return simulate_sparse(arr, cfa_type=cfa_type, **kwargs)[0].transpose(1, 2, 0)
 
 
 def simulate_sparse(image, pattern="RGGB", cfa_type="bayer", bias = 255):
