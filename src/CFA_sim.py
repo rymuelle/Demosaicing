@@ -7,14 +7,22 @@ def simulate_sparse_PIL(image, **kwargs):
     return simulate_sparse(arr, **kwargs)[0].transpose(1, 2, 0)
     return Image.fromarray(simulate_sparse(arr, **kwargs)[0].transpose(1, 2, 0))
 
-def simulate_sparse_wrapper(image, cfa_type = 'random', **kwargs):
+def simulate_sparse_wrapper(image, six_chan=False, four_chan=False, cfa_type = 'random', **kwargs):
     arr = image.transpose(2, 0, 1)
     if cfa_type == "random":
         if random.random() > 0.5:
             cfa_type = 'xtrans'
         else:
             cfa_type = 'bayer'
-    return simulate_sparse(arr, cfa_type=cfa_type, **kwargs)[0].transpose(1, 2, 0)
+            
+    sparse, mask = simulate_sparse(arr, cfa_type=cfa_type, **kwargs)
+    # mask = mask * 254
+    if four_chan: 
+        sparse = sparse.sum(axis=0, keepdims=True)
+        sparse = np.concatenate((sparse, mask ), axis=0)
+    elif six_chan: 
+        sparse = np.concatenate((sparse, mask ), axis=0)
+    return sparse.transpose(1, 2, 0)
 
 
 def simulate_sparse(image, pattern="RGGB", cfa_type="bayer", bias = 255):
@@ -69,7 +77,7 @@ def simulate_sparse(image, pattern="RGGB", cfa_type="bayer", bias = 255):
             for j in range(6):
                 ch = cmap[xtrans_pattern[i, j]]
                 cfa[ch, i::6, j::6] = image[ch, i::6, j::6]
-                sparse_mask[ch, i::2, j::2] = 1
+                sparse_mask[ch, i::6, j::6] = 1
     else:
         raise ValueError(f"Unknown CFA type: {cfa_type}")
 
