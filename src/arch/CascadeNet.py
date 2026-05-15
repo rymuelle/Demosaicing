@@ -34,7 +34,7 @@ class CascadeNet(nn.Module):
             x = conv(inp)
             if output is not None:
                 x += output
-            x = block(x)
+            x = block(x) + x
             output = down(x)
         return self.out(output)
 
