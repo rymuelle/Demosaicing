@@ -15,20 +15,25 @@ from src.CFA_sim import simulate_sparse_wrapper
 from arch.NAFNetNoRes import NAFNet
 
 CONFIG = {
-    "model_name": "nafnet_baseline",
+    "model_name": "NAF_mixed_32_semi_iso_1_4_chan_fixed_shallow",
     "experiment_name": "Flickr30k_Demosaicing",
     "batch_size": 16,
     "lr": 1e-3,
     "sched_end_factor": 1e-1,
-    "epochs": 2,
+    "epochs": 3,
     "seed": 42,
     "num_workers": 12,
     "device": "cuda" if torch.cuda.is_available() else "cpu",
-    "cfa_type": "xtrans",
-    "width": 16,
-    "middle_blk_num":10,
-    "enc_blk_nums":[2, 2, 4, 6],
-    "dec_blk_nums":[2, 2, 2, 2],
+    "cfa_type": "random",
+    "width": 32,
+    "middle_blk_num":1,
+    "enc_blk_nums":[0, 0],
+    "dec_blk_nums":[1, 1],
+    "sparse_bias": 0,
+    "six_chan": True,
+    "four_chan": False,
+    "in_channels": 6,
+    # "heads": [4, 4 , 4, 8, 16],
 }
 
 def train():
@@ -43,7 +48,7 @@ def train():
     dataset = Flickr30kDatasetCorrupt(
         os.path.join(flickr30k, "Images"), 
         os.path.join(flickr30k, "captions.txt"),
-        corrupt=lambda x: simulate_sparse_wrapper(x, cfa_type=CONFIG["cfa_type"]),
+        corrupt=lambda x: simulate_sparse_wrapper(x, cfa_type=CONFIG["cfa_type"], bias=CONFIG['sparse_bias'], six_chan=CONFIG['six_chan'], four_chan=CONFIG['four_chan']),
         transform=transforms
     )
 
@@ -57,7 +62,7 @@ def train():
                             generator=generator, num_workers=CONFIG["num_workers"])
 
     # Model
-    model = NAFNet(img_channel=3, in_channels=3, width=CONFIG["width"], middle_blk_num=CONFIG["middle_blk_num"], 
+    model = NAFNet(img_channel=3, in_channels=CONFIG['in_channels'], width=CONFIG["width"], middle_blk_num=CONFIG["middle_blk_num"], 
                    enc_blk_nums=CONFIG["enc_blk_nums"], dec_blk_nums=CONFIG["dec_blk_nums"]).to(CONFIG["device"])
     
     optimizer = torch.optim.Adam(model.parameters(), lr=CONFIG["lr"])
