@@ -13,9 +13,10 @@ from paths import flickr30k
 from src.Flickr30kDatasetCorrupt import Flickr30kDatasetCorrupt
 from src.CFA_sim import simulate_sparse_wrapper
 from arch.NAFNetNoRes import NAFNet
+# from src.arch.CascadeNet import CascadeNet
 
 CONFIG = {
-    "model_name": "NAF_mixed_32_semi_iso_1_4_chan_fixed_shallow",
+    "model_name": "NAF_mixed_16_0_0_0_15_0_0_0",
     "experiment_name": "Flickr30k_Demosaicing",
     "batch_size": 16,
     "lr": 1e-3,
@@ -25,14 +26,16 @@ CONFIG = {
     "num_workers": 12,
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "cfa_type": "random",
-    "width": 32,
-    "middle_blk_num":1,
-    "enc_blk_nums":[0, 0],
-    "dec_blk_nums":[1, 1],
+    "width": 16,
+    "middle_blk_num": 15,
+    "enc_blk_nums":[0, 0, 0],
+    "dec_blk_nums":[0, 0, 0],
+    # "steps": [10, 1, 1],
     "sparse_bias": 0,
     "six_chan": True,
     "four_chan": False,
     "in_channels": 6,
+
     # "heads": [4, 4 , 4, 8, 16],
 }
 
@@ -64,6 +67,8 @@ def train():
     # Model
     model = NAFNet(img_channel=3, in_channels=CONFIG['in_channels'], width=CONFIG["width"], middle_blk_num=CONFIG["middle_blk_num"], 
                    enc_blk_nums=CONFIG["enc_blk_nums"], dec_blk_nums=CONFIG["dec_blk_nums"]).to(CONFIG["device"])
+    # model = CascadeNet(out_channels=3, in_channels=CONFIG['in_channels'], width=CONFIG["width"],
+    #                     steps=CONFIG['steps']).to(CONFIG["device"])
     
     optimizer = torch.optim.Adam(model.parameters(), lr=CONFIG["lr"])
     scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=CONFIG["sched_end_factor"], total_iters=CONFIG["epochs"])
