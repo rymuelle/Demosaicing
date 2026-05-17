@@ -60,17 +60,21 @@ class SimpleGate(nn.Module):
         x1, x2 = x.chunk(2, dim=1)
         return x1 * x2
 
-class MixerBlock(nn.Module):
+class ShifterBlock(nn.Module):
     def __init__(self, c, expand=2, kernel_size=1, padding=0, groups=1):
         super().__init__()
         self.sg = SimpleGate()
         self.norm1 = nn.GroupNorm(1, c)
         expand = expand * c
+        self.shifter = SpatialShift(c, shift_fraction=0.5)
+        self.conv0 = nn.Conv2d(in_channels=c, out_channels=c, kernel_size=kernel_size, padding=padding, stride=1, groups=groups, bias=True)
         self.conv1 = nn.Conv2d(in_channels=c, out_channels=expand, kernel_size=kernel_size, padding=padding, stride=1, groups=groups, bias=True)
         self.conv2 = nn.Conv2d(in_channels=expand // 2, out_channels=c, kernel_size=1, padding=0, stride=1, groups=groups, bias=True)
         self.beta = nn.Parameter(torch.zeros((1, c, 1, 1)), requires_grad=True)
     def forward(self, x):
         inp = x
+        x = self.conv0(x)
+        x = self.shifter(x)
         x = self.conv1(self.norm1(x))
         x = self.sg(x)
         x = self.conv2(x)
@@ -83,16 +87,16 @@ class NAFBlock(nn.Module):
         self.shift_pw = nn.Conv2d(c, c, 1)
 
         self.pblock = MixerBlock(c, kernel_size=1, padding=0, expand=expand, groups=1)
-        self.pblock2 = MixerBlock(c, kernel_size=1, padding=0, expand=expand, groups=1)
+        # self.pblock2 = MixerBlock(c, kernel_size=1, padding=0, expand=expand, groups=1)
 
     def forward(self, x):
         inp = x
         x = self.shift_pw(x)
         x = self.shifter(x)
         x = self.pblock(x)
-        x = inp + x
-        x = self.pblock2(x)
-        return x
+        # x = inp + x
+        # x = self.pblock2(x)
+        return x + inp
 
 class SimpleBlock(nn.Module):
     def __init__(self, c, FFN_Expand=2):
@@ -109,8 +113,7 @@ class SimpleBlock(nn.Module):
         x = self.sg(x)
         return inp + x * self.beta
 
-
-
+        return y + x * self.gamma
 class ShiftNet(nn.Module):
 
     def __init__(self, img_channel=3, in_channels=6, width=16, middle_blk_num=1, enc_blk_nums=[], dec_blk_nums=[], mask=True):
@@ -138,7 +141,7 @@ class ShiftNet(nn.Module):
         for num, snum in enc_blk_nums:
             self.encoders.append(
                 nn.Sequential(
-                    *[NAFBlock(chan) for _ in range(num)],
+                    *[ShifterBlock(chan) for _ in range(num)],
                     *[SimpleBlock(chan) for _ in range(snum)]
                 )
             )
@@ -149,7 +152,7 @@ class ShiftNet(nn.Module):
 
         self.middle_blks = \
             nn.Sequential(
-                *[NAFBlock(chan) for _ in range(middle_blk_num)]
+                *[ShifterBlock(chan) for _ in range(middle_blk_num)]
             )
 
         for num, snum in dec_blk_nums:
@@ -162,7 +165,7 @@ class ShiftNet(nn.Module):
             chan = chan // 2
             self.decoders.append(
                 nn.Sequential(
-                    *[NAFBlock(chan) for _ in range(num)],
+                    *[ShifterBlock(chan) for _ in range(num)],
                     *[SimpleBlock(chan) for _ in range(snum)]
                 )
             )
