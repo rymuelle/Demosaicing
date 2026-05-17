@@ -17,7 +17,7 @@ from arch.NAFNetNoRes import NAFNet
 from src.arch.DemoNAFNet import DemoNAFNet
 
 CONFIG = {
-    "model_name": "DemoNAF_baseline_nomask",
+    "model_name": "DemoNAF_baseline_simpleblock",
     "experiment_name": "Flickr30k_Demosaicing_ImageDatasetCorrupt",
     "batch_size": 16,
     "lr": 1e-3,
@@ -29,8 +29,8 @@ CONFIG = {
     "cfa_type": "random",
     "width": 32,
     "middle_blk_num": 15,
-    "enc_blk_nums":[1, 0],
-    "dec_blk_nums":[0, 0],
+    "enc_blk_nums":[(0, 1), (0, 1)],
+    "dec_blk_nums":[(0, 1), (0, 1)],
     # "steps": [10, 1, 1],
     "sparse_bias": 0,
     "six_chan": True,
@@ -38,7 +38,7 @@ CONFIG = {
     "in_channels": 6,
     "lumi_noise": 50./255,
     "crop_size": 256,
-    "residual_mask" : False,
+    "residual_mask" : True,
 }
 
 def train():
