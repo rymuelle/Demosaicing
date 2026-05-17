@@ -14,10 +14,10 @@ from src.ImageDatasetCorrupt import ImageDatasetCorrupt
 
 from src.CFA_sim import simulate_sparse_wrapper
 from arch.NAFNetNoRes import NAFNet
-from src.arch.DemoNAFNet import DemoNAFNet
+from src.arch.AsymDemoNet import AsymDemoNet
 
 CONFIG = {
-    "model_name": "DemoNAF_baseline_simpleblock",
+    "model_name": "AsymDemoNet_baseline",
     "experiment_name": "Flickr30k_Demosaicing_ImageDatasetCorrupt",
     "batch_size": 16,
     "lr": 1e-3,
@@ -28,9 +28,9 @@ CONFIG = {
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "cfa_type": "random",
     "width": 32,
-    "middle_blk_num": 15,
-    "enc_blk_nums":[(0, 1), (0, 1)],
-    "dec_blk_nums":[(0, 1), (0, 1)],
+    "middle_blk_num": 14,
+    "enc_blk_nums":[(0, 0), (0, 0)],
+    "dec_blk_nums":[(0, 0), (0, 0)],
     # "steps": [10, 1, 1],
     "sparse_bias": 0,
     "six_chan": True,
@@ -69,7 +69,7 @@ def train():
                             generator=generator, num_workers=CONFIG["num_workers"])
 
     # Model
-    model = DemoNAFNet(in_channels=CONFIG['in_channels'], width=CONFIG["width"], middle_blk_num=CONFIG["middle_blk_num"], 
+    model = AsymDemoNet(in_channels=CONFIG['in_channels'], width=CONFIG["width"], middle_blk_num=CONFIG["middle_blk_num"], 
                    enc_blk_nums=CONFIG["enc_blk_nums"], dec_blk_nums=CONFIG["dec_blk_nums"], mask=CONFIG['residual_mask']).to(CONFIG["device"], )
 
     
