@@ -45,11 +45,22 @@ def add_luma_noise(img, noise_intensity=0.1):
     lab = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_BGR2LAB)
     l_channel = lab[:, :, 0]
     noise = np.random.normal(loc=0.0, scale=noise_intensity, size=l_channel.shape)
+    # kernel_size=3
+    # noise = cv2.GaussianBlur(noise, (kernel_size, kernel_size), 0)
+    # noise += np.random.normal(loc=0.0, scale=noise_intensity, size=l_channel.shape)*.5
+    # print(noise.std())
     noisy_l = l_channel.astype(np.float32) + noise * 255
     noisy_l = np.clip(noisy_l, 0, 255).astype(np.uint8)
     lab[:, :, 0] = noisy_l
     final_img = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR).astype(np.float32)
     return final_img / 255
+
+
+def scale_noise(img, noise_intensity=0.1):
+    h, w, c = img.shape
+    noise = 1 + np.random.normal(loc=0.0, scale=noise_intensity, size=(h, w, 1))*noise_intensity
+    return img * noise
+
 
 class ImageDatasetCorrupt(Dataset):
     def __init__(self, root_dir, corrupt, crop_size=(256, 256), noise=0, transform=None):
