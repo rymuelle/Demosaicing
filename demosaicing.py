@@ -10,31 +10,35 @@ import mlflow.pytorch
 
 # Custom imports
 from paths import flickr30k
-from src.Flickr30kDatasetCorrupt import Flickr30kDatasetCorrupt
+from src.ImageDatasetCorrupt import ImageDatasetCorrupt
+
 from src.CFA_sim import simulate_sparse_wrapper
-# from arch.NAFNetNoRes import NAFNet
-# from src.arch.CascadeNet import CascadeNet
-from src.arch.INet import INet
+from arch.NAFNetNoRes import NAFNet
+from src.arch.DemoNAFNet import DemoNAFNet
+
 CONFIG = {
-    "model_name": "INet_64_16_4",
-    "experiment_name": "Flickr30k_Demosaicing",
+    "model_name": "DemoNAF_baseline_nomask",
+    "experiment_name": "Flickr30k_Demosaicing_ImageDatasetCorrupt",
     "batch_size": 16,
     "lr": 1e-3,
     "sched_end_factor": 1e-1,
-    "epochs": 3,
+    "epochs": 24,
     "seed": 42,
-    "num_workers": 12,
+    "num_workers": 16,
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "cfa_type": "random",
-    "width": 64,
-    "depth": 16,
-    "scale": 4,
+    "width": 32,
+    "middle_blk_num": 15,
+    "enc_blk_nums":[1, 0],
+    "dec_blk_nums":[0, 0],
+    # "steps": [10, 1, 1],
     "sparse_bias": 0,
     "six_chan": True,
     "four_chan": False,
     "in_channels": 6,
-
-    # "heads": [4, 4 , 4, 8, 16],
+    "lumi_noise": 50./255,
+    "crop_size": 256,
+    "residual_mask" : False,
 }
 
 def train():
@@ -46,11 +50,13 @@ def train():
         T.Lambda(lambda x: x / 255)
     ])
 
-    dataset = Flickr30kDatasetCorrupt(
+    dataset = ImageDatasetCorrupt(
         os.path.join(flickr30k, "Images"), 
-        os.path.join(flickr30k, "captions.txt"),
-        corrupt=lambda x: simulate_sparse_wrapper(x, cfa_type=CONFIG["cfa_type"], bias=CONFIG['sparse_bias'], six_chan=CONFIG['six_chan'], four_chan=CONFIG['four_chan']),
-        transform=transforms
+        corrupt=lambda x: simulate_sparse_wrapper(x, cfa_type=CONFIG["cfa_type"], bias=CONFIG['sparse_bias'],
+                                                   six_chan=CONFIG['six_chan'], four_chan=CONFIG['four_chan']),
+        transform=transforms,
+        crop_size=(CONFIG['crop_size'], CONFIG['crop_size']),
+        noise=CONFIG['lumi_noise']
     )
 
     train_size = int(0.8 * len(dataset))
@@ -63,12 +69,9 @@ def train():
                             generator=generator, num_workers=CONFIG["num_workers"])
 
     # Model
-    model = INet(out_channels=3, in_channels=CONFIG['in_channels'], width=CONFIG["width"], depth=CONFIG["depth"], 
-                   scale=CONFIG["scale"]).to(CONFIG["device"])
-    # model = NAFNet(img_channel=3, in_channels=CONFIG['in_channels'], width=CONFIG["width"], middle_blk_num=CONFIG["middle_blk_num"], 
-    #                enc_blk_nums=CONFIG["enc_blk_nums"], dec_blk_nums=CONFIG["dec_blk_nums"]).to(CONFIG["device"])
-    # model = CascadeNet(out_channels=3, in_channels=CONFIG['in_channels'], width=CONFIG["width"],
-    #                     steps=CONFIG['steps']).to(CONFIG["device"])
+    model = DemoNAFNet(in_channels=CONFIG['in_channels'], width=CONFIG["width"], middle_blk_num=CONFIG["middle_blk_num"], 
+                   enc_blk_nums=CONFIG["enc_blk_nums"], dec_blk_nums=CONFIG["dec_blk_nums"], mask=CONFIG['residual_mask']).to(CONFIG["device"], )
+
     
     optimizer = torch.optim.Adam(model.parameters(), lr=CONFIG["lr"])
     scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=CONFIG["sched_end_factor"], total_iters=CONFIG["epochs"])
@@ -87,7 +90,7 @@ def train():
             train_loss = 0.0
             tloader = tqdm(train_loader, desc=f"Epoch {epoch+1}/{CONFIG['epochs']} [Train]")
             
-            for images, sparse, _ in tloader:
+            for images, sparse in tloader:
                 images, sparse = images.to(CONFIG["device"]), sparse.to(CONFIG["device"])
                 optimizer.zero_grad()
                 with torch.autocast(device_type=CONFIG["device"], dtype=torch.bfloat16):
@@ -109,7 +112,7 @@ def train():
             vloader = tqdm(val_loader, desc=f"Epoch {epoch+1} [Val]")
             
             with torch.no_grad():
-                for images, sparse, _ in vloader:
+                for images, sparse in vloader:
                     images, sparse = images.to(CONFIG["device"]), sparse.to(CONFIG["device"])
                     output = model(sparse)
                     loss = criterion(output, images)
