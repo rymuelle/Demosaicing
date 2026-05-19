@@ -40,15 +40,15 @@ def apply_gamma(image, gamma):
 import cv2
 import numpy as np
 
-def add_luma_noise(img, noise_intensity=0.1):
+def add_luma_noise(img, noise_intensity=0.1, blur=False):
     img *= 255
     lab = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_BGR2LAB)
     l_channel = lab[:, :, 0]
     noise = np.random.normal(loc=0.0, scale=noise_intensity, size=l_channel.shape)
-    # kernel_size=3
-    # noise = cv2.GaussianBlur(noise, (kernel_size, kernel_size), 0)
-    # noise += np.random.normal(loc=0.0, scale=noise_intensity, size=l_channel.shape)*.5
-    # print(noise.std())
+    if blur:
+        kernel_size=3
+        noise = cv2.GaussianBlur(noise, (kernel_size, kernel_size), 0)
+        noise += np.random.normal(loc=0.0, scale=noise_intensity, size=l_channel.shape)
     noisy_l = l_channel.astype(np.float32) + noise * 255
     noisy_l = np.clip(noisy_l, 0, 255).astype(np.uint8)
     lab[:, :, 0] = noisy_l

@@ -73,6 +73,21 @@ class NAFBlock(nn.Module):
 
         return y + x * self.gamma
 
+class SimpleBlock(nn.Module):
+    def __init__(self, c, FFN_Expand=2):
+        super().__init__()
+        self.sg = SimpleGate()
+        ffn_channel = FFN_Expand * c
+        self.conv1 = nn.Conv2d(in_channels=c, out_channels=ffn_channel, kernel_size=1, padding=0, stride=1, groups=1, bias=True)
+        self.norm1 = nn.GroupNorm(1, c)
+        self.beta = nn.Parameter(torch.zeros((1, c, 1, 1)), requires_grad=True)
+
+    def forward(self, inp):
+        x = inp
+        x = self.conv1(self.norm1(x))
+        x = self.sg(x)
+        return inp + x * self.beta
+
 
 
 class DemoNAFNet(nn.Module):
@@ -99,10 +114,11 @@ class DemoNAFNet(nn.Module):
         self.downs = nn.ModuleList()
 
         chan = width
-        for num in enc_blk_nums:
+        for num, snum in enc_blk_nums:
             self.encoders.append(
                 nn.Sequential(
-                    *[NAFBlock(chan) for _ in range(num)]
+                    *[NAFBlock(chan) for _ in range(num)],
+                    *[SimpleBlock(chan) for _ in range(snum)]
                 )
             )
             self.downs.append(
@@ -115,7 +131,7 @@ class DemoNAFNet(nn.Module):
                 *[NAFBlock(chan) for _ in range(middle_blk_num)]
             )
 
-        for num in dec_blk_nums:
+        for num, snum in dec_blk_nums:
             self.ups.append(
                 nn.Sequential(
                     nn.Conv2d(chan, chan * 2, 1, bias=False),
@@ -125,7 +141,8 @@ class DemoNAFNet(nn.Module):
             chan = chan // 2
             self.decoders.append(
                 nn.Sequential(
-                    *[NAFBlock(chan) for _ in range(num)]
+                    *[NAFBlock(chan) for _ in range(num)],
+                    *[SimpleBlock(chan) for _ in range(snum)]
                 )
             )
 
@@ -150,7 +167,6 @@ class DemoNAFNet(nn.Module):
             x = up(x)
             x = x + enc_skip
             x = decoder(x)
-
         x = self.ending(x)
         x = x[:, :, :H, :W]
 

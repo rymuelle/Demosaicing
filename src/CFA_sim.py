@@ -7,7 +7,7 @@ def simulate_sparse_PIL(image, **kwargs):
     return simulate_sparse(arr, **kwargs)[0].transpose(1, 2, 0)
     return Image.fromarray(simulate_sparse(arr, **kwargs)[0].transpose(1, 2, 0))
 
-def simulate_sparse_wrapper(image, six_chan=False, four_chan=False, cfa_type = 'random', noise=0, **kwargs):
+def simulate_sparse_wrapper(image, variable_color_noise=0, six_chan=False, four_chan=False, cfa_type = 'random', noise=0, variable_noise=True, **kwargs):
     arr = image.transpose(2, 0, 1)
     if cfa_type == "random":
         if random.random() > 0.5:
@@ -15,7 +15,13 @@ def simulate_sparse_wrapper(image, six_chan=False, four_chan=False, cfa_type = '
         else:
             cfa_type = 'bayer'
     if noise > 0:
-        _arr = arr + (np.random.randn(*arr.shape) * noise).astype(np.float32)
+        if variable_noise: 
+            scale = random.random()
+            if variable_color_noise:
+                scale = (1 + np.random.randn(3, 1, 1) * variable_color_noise).astype(np.float32)
+        else:
+            scale = 1
+        _arr = arr + (np.random.randn(*arr.shape) * noise).astype(np.float32) * scale
     else:
         _arr = arr
     sparse, mask = simulate_sparse(_arr, cfa_type=cfa_type, **kwargs)
